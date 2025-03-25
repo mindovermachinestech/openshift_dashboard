@@ -1,0 +1,14 @@
+requests
+streamlit
+plotly
+pandas
+kubernetes
+phidata
+openai
+flask
+langchain
+langgraph
+dotenv
+langchain_community
+langchain-openai
+chainlit
