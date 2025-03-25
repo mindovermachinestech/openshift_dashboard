@@ -4,6 +4,56 @@ import pandas as pd
 import time
 
 
+def get_openshift_tool(input=None):
+    print(f"invoked get_openshift_tool with input {input}")
+    response = ''
+    try:
+        input_dict = eval(input.strip())
+        # Validate if input is provided and is a dictionary
+        if not isinstance(input_dict, dict):
+            return "Error: 'input' must be a dictionary."
+
+        # Validate and extract 'app_name'
+        action_name = input_dict.get("tool_name")
+        if action_name == 'get_applications':
+            print(f"invoked get_applications with input {input}")
+            response = get_applications(input)
+        elif action_name == 'get_pods_and_status_health_for_application':
+            print(f"invoked get_pods_and_status_health_for_application with input {input}")
+            response = get_pods_and_status_health_for_application(input)
+        elif action_name == 'restart_application':
+            print(f"invoked restart_application with input {input}")
+            response = restart_application(input)
+        elif action_name == 'upgrade_application':
+            print(f"invoked  upgrade_application with input {input}")
+            response = upgrade_application(input)
+        elif action_name == 'scale_application_pods':
+            print(f"invoked  scale_application_pods with input {input}")
+            response = scale_application_pods(input)
+        elif action_name == 'get_application_logs':
+            print(f"invoked  get_application_logs with input {input}")
+            response = get_application_logs(input)
+        elif action_name == 'get_deployment_configs':
+            print(f"invoked  get_deployment_configs with input {input}")
+            response = get_deployment_configs(input)
+        elif action_name == 'get_application_telemetry_data':
+            print(f"invoked  with input {input}")
+            response = get_application_telemetry_data(input)
+        elif action_name == 'check_critical_components_health':
+            print(f"invoked  check_critical_components_health with input {input}")
+            response = check_critical_components_health(input)
+        elif action_name == 'check_resource_utilization_health':
+            print(f"invoked check_resource_utilization_health with input {input}")
+            response = check_resource_utilization_health(input)
+        elif action_name == 'deploy_new_application':
+            print(f"invoked  deploy_new_application with input {input}")
+            response = deploy_new_application(input)
+        return response
+    except Exception as e:
+        print(f"Error fetching applications: {str(e)}")
+        return []
+
+
 def get_applications(input=None):
     try:
         v1 = create_client('apps')
@@ -99,7 +149,7 @@ def get_application_telemetry_data(input=None):
         metrics = create_client('metrics')
 
         if not v1 or not metrics:
-            return pd.DataFrame([])
+            return [] #pd.DataFrame([])
 
         namespace = "mindovermachinestech-dev"
         label_selector = f"app={app_name}"
@@ -129,12 +179,12 @@ def get_application_telemetry_data(input=None):
                 print(f"Error fetching metrics for pod {pod_name}: {str(e)}")
 
         if data:
-            return pd.DataFrame(data)
+            return data #pd.DataFrame(data)
         else:
-            return pd.DataFrame([])
+            return [] #pd.DataFrame([])
     except Exception as e:
         print(f"Error fetching telemetry data: {str(e)}")
-        return pd.DataFrame([])
+        return [] #pd.DataFrame([])
 
 
 def get_telemetry_data_for_duration(app_name, duration_minutes=5,input=None):
@@ -143,7 +193,7 @@ def get_telemetry_data_for_duration(app_name, duration_minutes=5,input=None):
         metrics = create_client('metrics')
 
         if not v1 or not metrics:
-            return pd.DataFrame([])
+            return [] #pd.DataFrame([])
 
         namespace = "mindovermachinestech-dev"
         label_selector = f"app={app_name}"
@@ -179,10 +229,10 @@ def get_telemetry_data_for_duration(app_name, duration_minutes=5,input=None):
             except Exception as e:
                 print(f"Error fetching metrics for pod {pod_name}: {str(e)}")
 
-        return pd.DataFrame(data)
+        return data #pd.DataFrame(data)
     except Exception as e:
         print(f"Error fetching telemetry data for duration: {str(e)}")
-        return pd.DataFrame([])
+        return [] #pd.DataFrame([])
 
 
 def get_application_logs(input=None):
@@ -365,11 +415,11 @@ def upgrade_application(input=None):
         # Validate and extract 'app_name'
         app_name = input_dict.get("app_name")
         if not app_name or not isinstance(app_name, str):
-            return "Error: 'app_name' is required and must be a non-empty string."
+            return "application name is not mentioned in the user message, we cannot process further"
 
         new_image = input_dict.get("new_image")
         if not new_image or not isinstance(new_image, str):
-            return "Error: 'new_image' is required and must be a non-empty string."
+            return "tool name is not mentioned in the user message, we cannot process further"
 
         v1 = create_client('apps')
         if not v1:

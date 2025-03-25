@@ -8,20 +8,8 @@ import os
 import warnings
 import urllib3
 from openshift import (
-    get_applications,
-    get_pods_and_status_health_for_application,
-    restart_application,
-    upgrade_application,
-    scale_application_pods,
-    get_application_logs,
-    get_deployment_configs,
-    get_application_telemetry_data,
-    check_cluster_nodes_health,
-    check_critical_components_health,
-    check_resource_utilization_health,
-    deploy_new_application
+    get_openshift_tool
 )
-
 # Suppress InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="langchain")
@@ -38,59 +26,9 @@ if not ait_api_key:
 # Define tools for the agent
 tools = [
     Tool(
-        name="get_applications",
-        func=get_applications,
-        description="List all applications names (deployments names) in the 'mindovermachinestech-dev' namespace.",
-    ),
-    Tool(
-        name="get_pods_and_status_health_for_application",
-        func=get_pods_and_status_health_for_application,
-        description="Get all pods for a specific application along with pod status in the 'mindovermachinestech-dev' namespace.",
-    ),
-    Tool(
-        name="restart_application",
-        func=restart_application,
-        description="Restart a specific application in the 'mindovermachinestech-dev' namespace. Input should be the application name.",
-    ),
-    Tool(
-        name="upgrade_application",
-        func=upgrade_application,
-        description="Upgrade a specific application to a new container image in the 'mindovermachinestech-dev' namespace. Input should include the application name and the new image.",
-    ),
-    Tool(
-        name="scale_application_pods",
-        func=scale_application_pods,
-        description="Scale the number of pods for a specific application in the 'mindovermachinestech-dev' namespace. Input should include the application name and the desired number of replicas.",
-    ),
-    Tool(
-        name="get_application_logs",
-        func=get_application_logs,
-        description="Fetch logs for a specific application in the 'mindovermachinestech-dev' namespace. "
-    ),
-    Tool(
-        name="get_deployment_configs",
-        func=get_deployment_configs,
-        description="Fetch deployment configurations for specific application in the 'mindovermachinestech-dev' namespace. "
-    ),
-    Tool(
-        name="get_application_telemetry_data",
-        func=get_application_telemetry_data,
-        description="Fetch telemetry and monitoring data for specific application in the 'mindovermachinestech-dev' namespace. "
-    ),
-    Tool(
-        name="check_critical_components_health",
-        func=check_critical_components_health,
-        description="Fetch critical components health and monitoring data for specific openshift cluster in the 'mindovermachinestech-dev' namespace. "
-    ),
-    Tool(
-        name="check_resource_utilization_health",
-        func=check_resource_utilization_health,
-        description="Fetch resource utilization for openshift cluster components as part of health check 'mindovermachinestech-dev' namespace. "
-    ),
-    Tool(
-        name="deploy_new_application",
-        func=deploy_new_application,
-        description="Deploy new application or new deployement in 'mindovermachinestech-dev' namespace. "
+        name="get_openshift_tool",
+        func=get_openshift_tool,
+        description="only tool to handle all actions in  'mindovermachinestech-dev' namespace. "
     )
 ]
 
@@ -146,12 +84,31 @@ def parse_user_input(user_input):
         - replicas: The number of replicas for scaling (e.g., "2", "5").
         - new_image: The new container image for upgrading (e.g., "nginx:latest", "my-image:v2").
         - container_image: The container image for deploying (e.g , "quay.io/mindovermachinestech/business-rule-processor:latest").
+        
+        Also Your task is to analyze the user input identify the tool name to invoke based on user input, tool name must match with any one of below, should not return any other tool name :
+        get_applications
+        get_pods_and_status_health_for_application
+        restart_application
+        upgrade_application
+        scale_application_pods
+        get_application_logs
+        get_deployment_configs
+        get_application_telemetry_data
+        check_cluster_nodes_health
+        check_critical_components_health
+        check_resource_utilization_health
+        deploy_new_application
 
         The user input may use synonyms or different phrasing. For example:
         - "get logs for rule-engine" -> app_name = "rule-engine"
         - "fetch last 50 lines of logs for my-app" -> app_name = "my-app", tail_lines = 50
         - "scale my-app to 3 pods" -> app_name = "my-app", replicas = 3
         - "update my-app to use nginx:latest" -> app_name = "my-app", new_image = "nginx:latest"
+        
+        The user input may use synonyms or different tool. For example:
+        - "get application details" -> tool_name = "get_applications"
+        - "increase number of instances of application to 10" -> tool_name = "scale_application_pods"
+        
 
         IMPORTANT: Return ONLY the JSON object as plain text, without any additional explanation or formatting tags.
         Ensure the JSON object contains only the extracted fields and their values.
