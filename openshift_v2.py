@@ -22,7 +22,7 @@ def get_openshift_tool(input=None):
         action_name = input_dict.get("tool_name")
         if action_name == 'get_applications':
             print(f"invoked get_applications with input {input}")
-            response = getTelemetryData(input)
+            response = get_pods_details_for_application(input)
         elif action_name == 'get_pods_and_status_health_for_application':
             print(f"invoked get_pods_and_status_health_for_application with input {input}")
             response = get_pods_and_status_health_for_application(input)
@@ -774,7 +774,7 @@ def get_applications(input=None):
             if pod.metadata.labels and pod.metadata.labels.get("app") == app_name:
                 pod_data.append({"pod_name" : pod.metadata.name,
                                  "memory" : pod_metrics_dict.get(pod.metadata.name, {}).get("memory", 0),
-                                 "cpu" : pod_metrics_dict.get(pod.metadata.name, {}).get("memory", 0)})
+                                 "cpu" : pod_metrics_dict.get(pod.metadata.name, {}).get("cpu", 0)})
                 memory_usage += pod_metrics_dict.get(pod.metadata.name, {}).get("memory", 0)
 
         # Mock requests and activity (not available via Kubernetes API)
@@ -904,5 +904,59 @@ def getTelemetryData(namespace="mindovermachinestech-dev"):
 
 
 
+def get_pods_details_for_application(input=None):
+    print(f"invoked get_pods_and_status_health_for_application with input {input}")
+    try:
+        input_dict = eval(input.strip())
+        # Validate if input is provided and is a dictionary
+        if not isinstance(input_dict, dict):
+            return "Error: 'input' must be a dictionary."
 
+        # Validate and extract 'app_name'
+        app_name = input_dict.get("app_name","customer-service")
+        if not app_name or not isinstance(app_name, str):
+            return "Error: 'app_name' is required and must be a non-empty string."
+
+        metrics_v1 = create_client('metrics')
+        apps_v1 = create_client('apps')
+        core_v1 = create_client('core')
+
+        # Get pods for the specified application in 'mindovermachinestech-dev' namespace
+        namespace = "mindovermachinestech-dev"
+        label_selector = f"app={app_name}"
+        pods = core_v1.list_namespaced_pod(namespace=namespace, label_selector=label_selector)
+
+        # Fetch pod metrics
+        try:
+            pod_metrics = metrics_v1.list_namespaced_custom_object(
+                group="metrics.k8s.io",
+                version="v1beta1",
+                namespace=namespace,
+                plural="pods"
+            )
+        except client.exceptions.ApiException as e:
+            print(f"Error fetching pod metrics: {e}")
+            pod_metrics = {"items": []}
+
+        # Build a dictionary of pod metrics for quick lookup
+        pod_metrics_dict = {}
+        for pod in pod_metrics.get("items", []):
+            pod_name = pod["metadata"]["name"]
+            pod_metrics_dict[pod_name] = {
+                "cpu": sum(int(c["usage"]["cpu"].rstrip("n")) for c in pod.get("containers", [])),
+                "memory": sum(int(c["usage"]["memory"].rstrip("Ki")) for c in pod.get("containers", []))
+            }
+
+        pod_list = []
+        for pod in pods.items:
+            pod_list.append({
+                "name": pod.metadata.name,
+                "status": pod.status.phase,
+                "memory": pod_metrics_dict.get(pod.metadata.name, {}).get("memory", 0),
+                "cpu": pod_metrics_dict.get(pod.metadata.name, {}).get("cpu", 0)
+            })
+        return pod_list
+    except Exception as e:
+        print(f"Error fetching pods: {str(e)}")
+        return []
 
