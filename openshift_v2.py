@@ -769,8 +769,12 @@ def get_applications(input=None):
 
         # Get memory usage for the application's pods
         memory_usage = 0
+        pod_data = []
         for pod in core_v1.list_namespaced_pod(namespace=namespace).items:
             if pod.metadata.labels and pod.metadata.labels.get("app") == app_name:
+                pod_data.append({"pod_name" : pod.metadata.name,
+                                 "memory" : pod_metrics_dict.get(pod.metadata.name, {}).get("memory", 0),
+                                 "cpu" : pod_metrics_dict.get(pod.metadata.name, {}).get("memory", 0)})
                 memory_usage += pod_metrics_dict.get(pod.metadata.name, {}).get("memory", 0)
 
         # Mock requests and activity (not available via Kubernetes API)
@@ -793,11 +797,13 @@ def get_applications(input=None):
                 "period": datetime.now().strftime("%B %d, %Y"),
                 "color": memory_color
             },
+            "pods": pod_data,
             "requests": str(requests),
             "activity": activity
         })
 
     return applications
+
 
 
 
