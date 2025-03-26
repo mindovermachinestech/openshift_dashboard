@@ -22,7 +22,7 @@ def get_openshift_tool(input=None):
         action_name = input_dict.get("tool_name")
         if action_name == 'get_applications':
             print(f"invoked get_applications with input {input}")
-            response = get_applications(input)
+            response = getTelemetryData(input)
         elif action_name == 'get_pods_and_status_health_for_application':
             print(f"invoked get_pods_and_status_health_for_application with input {input}")
             response = get_pods_and_status_health_for_application(input)
@@ -803,6 +803,104 @@ def get_applications(input=None):
         })
 
     return applications
+
+
+from kubernetes import client, config
+from datetime import datetime, timedelta
+import random
+
+
+def getTelemetryData(namespace="mindovermachinestech-dev"):
+    namespace = "mindovermachinestech-dev"
+    metrics_v1 = create_client('metrics')
+    apps_v1 = create_client('apps')
+    core_v1 = create_client('core')
+
+    # Fetch pod metrics for the namespace
+    try:
+        pod_metrics = metrics_v1.list_namespaced_custom_object(
+            group="metrics.k8s.io",
+            version="v1beta1",
+            namespace=namespace,
+            plural="pods"
+        )
+    except client.exceptions.ApiException as e:
+        print(f"Error fetching pod metrics: {e}")
+        pod_metrics = {"items": []}
+
+    # Aggregate pod-level metrics
+    total_cpu_usage = 0
+    total_memory_usage = 0
+    total_pods = 0
+    running_pods = 0
+
+    for pod in pod_metrics.get("items", []):
+        # Extract CPU and memory usage
+        cpu_usage = sum(
+            int(c["usage"]["cpu"].rstrip("n")) for c in pod.get("containers", [])) / 1e9  # Convert nanocores to cores
+        memory_usage = sum(
+            int(c["usage"]["memory"].rstrip("Ki")) for c in pod.get("containers", [])) / 1024 ** 2  # Convert KiB to MiB
+
+        # Aggregate values
+        total_cpu_usage += cpu_usage
+        total_memory_usage += memory_usage
+        total_pods += 1
+
+        # Check if the pod is running
+        pod_name = pod["metadata"]["name"]
+        try:
+            pod_status = core_v1.read_namespaced_pod(name=pod_name, namespace=namespace).status.phase
+            if pod_status == "Running":
+                running_pods += 1
+        except client.exceptions.ApiException as e:
+            print(f"Error fetching pod status for {pod_name}: {e}")
+
+    # Fetch deployments to count applications
+    try:
+        deployments = apps_v1.list_namespaced_deployment(namespace=namespace)
+        total_deployments = len(deployments.items)
+    except client.exceptions.ApiException as e:
+        print(f"Error fetching deployments: {e}")
+        total_deployments = 0
+
+    # Calculate load percentage
+    memory_load_percentage = (total_memory_usage / (total_pods * 100)) * 100 if total_pods > 0 else 0
+
+    # Build telemetry data
+    telemetryData = [
+        {
+            "color": "success",
+            "title": "Load",
+            "value": f"{memory_load_percentage:.1f}%",
+        },
+        {
+            "color": "info",
+            "title": "State",
+            "value": "UP" if running_pods > 0 else "DOWN",
+        },
+        {
+            "color": "warning",
+            "title": "Applications",
+            "value": f"{total_deployments}",
+        },
+        {
+            "color": "primary",
+            "title": "Memory",
+            "value": f"{total_memory_usage:.2f} GB",
+        },
+        {
+            "color": "danger",
+            "title": "Running Pods",
+            "value": f"{running_pods}/{total_pods}",
+        },
+        {
+            "color": "dark",
+            "title": "Active Requests",
+            "value": f"{random.randint(500, 1000)}",  # Mocked value for active requests
+        },
+    ]
+
+    return telemetryData
 
 
 
